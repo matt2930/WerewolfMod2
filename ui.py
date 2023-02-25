@@ -5,7 +5,7 @@ from discord import ui, Interaction
 from config import CHANNEL_CONFIG, GameState
 
 class ChannelSelectDropdown(ui.Select):
-    def __init__(self):
+    def __init__(self, game):
         super().__init__()
 
         options = [
@@ -13,22 +13,25 @@ class ChannelSelectDropdown(ui.Select):
             for channel, config in CHANNEL_CONFIG[GameState.NEW].items()
         ]
 
+        self.current_game = game
+
         super().__init__(min_values=1, max_values=len(options), options=options)
 
 
     async def callback(self, interaction: Interaction):
         # self.disabled = True
         assert self.view is not None
-        if current_game.channels == {}:
-            current_game.channels = {channel_name: {'name': f'g{current_game.id}-{channel_name}'} for channel_name in self.values}
-        await current_game.create_channels(interaction)
+        if self.current_game.channels == {}:
+            self.current_game.channels = {channel_name: {'name': f'g{self.current_game.id}-{channel_name}'} for channel_name in self.values}
+        await self.current_game.create_channels(interaction)
         await interaction.response.send_message('Game creation complete!')
         self.disabled = True
+        return self.current_game
 
 class ChannelSelectView(ui.View):
-    def __init__(self):
+    def __init__(self, game):
         super().__init__()
-        self.add_item(ChannelSelectDropdown())
+        self.add_item(ChannelSelectDropdown(game))
 
 
 class ConfirmationView(ui.View):
@@ -68,6 +71,6 @@ Villager
 
     async def on_submit(self, interaction: Interaction):
         await interaction.response.send_message('Roles Set.')
-        self.roles = self.roles.split('\n')
+        self.roles = self.roles.value.split('\n')
 
         return self.roles

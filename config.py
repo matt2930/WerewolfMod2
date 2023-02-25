@@ -3,7 +3,7 @@ import os
 
 from enum import Enum
 
-CURRENT_GAME_CACHE = os.path.join(os.path.expanduser('~'), '.werewolf/current_game.pkl')
+CURRENT_GAME_CACHE = os.path.join(os.path.expanduser('~'), '.werewolf/current_game.json')
 
 class GameState(Enum):
     NEW = 'setup'
