@@ -10,7 +10,7 @@ from config import GameState, PlayerState, CURRENT_GAME_CACHE
 from werewolf.player import Player
 
 @dataclass
-class WWGame:
+class Game:
     id: int
     guild: discord.Guild
     state: GameState = GameState.NEW
@@ -76,7 +76,7 @@ class WWGame:
         with open(path.resolve(), 'r') as f:
             game = json.load(f)
 
-        print(game)
+        print(f'Game Data: {game}')
 
         guild: discord.Guild = await client.fetch_guild(int(game['guild_id']))
 

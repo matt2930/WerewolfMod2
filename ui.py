@@ -1,4 +1,5 @@
 import discord
+import random
 
 from discord import ui, Interaction
 
@@ -71,6 +72,6 @@ Villager
 
     async def on_submit(self, interaction: Interaction):
         await interaction.response.send_message('Roles Set.')
-        self.roles = self.roles.value.split('\n')
+        self.roles = random.shuffle(self.roles.value.split('\n'))
 
         return self.roles

@@ -11,8 +11,8 @@ from config import GameState
 from discord import app_commands
 from ui import ConfirmationView, ChannelSelectView, RoleModal
 
-from config import CURRENT_GAME_CACHE
-from werewolf.game import WWGame
+from config import Alignment, CURRENT_GAME_CACHE
+from werewolf import Game, Player, Role
 
 from discord import app_commands
 from typing import Any
@@ -71,7 +71,7 @@ Continue anyways?'''
                 interaction = confirmation.interaction
 
         print('continuing...')
-        current_game = WWGame(id=num, guild=interaction.guild)
+        current_game = Game(id=num, guild=interaction.guild)
         select_view = ChannelSelectView(current_game)
         await interaction.response.send_message(f'Select Channels for Game {current_game.id}', view=select_view)
         await select_view.wait()
@@ -108,6 +108,9 @@ Continue anyways?'''
         await role_modal.wait()
         print(role_modal.roles)
 
+        for i, player in enumerate(current_game.players):
+            player.set_role(role_modal.roles[i])
+
 
 def is_signups():
     def predicate(interaction: discord.Interaction) -> bool:
@@ -115,6 +118,14 @@ def is_signups():
             return True
         return False
     return app_commands.check(predicate)
+
+
+def can_vote():
+    def predicate(interaction: discord.Interaction) -> bool:
+        return current_game.state == GameState.IN_PROGRESS_DAY \
+                and interaction.channel == current_game.channels['voting-booth']['channel']
+    return app_commands.check(predicate)
+
 
 
 class WerewolfPlayerGroup(app_commands.Group):
@@ -142,6 +153,7 @@ class WerewolfPlayerGroup(app_commands.Group):
 
     @app_commands.command(description='Vote for a player')
     @app_commands.checks.has_role('Alive')
+    @can_vote()
     async def vote(self, interaction: discord.Interaction, user: discord.Member):
         """Votes for a player in the game
 
@@ -150,8 +162,8 @@ class WerewolfPlayerGroup(app_commands.Group):
         user: discord.Member
             the user to vote for
         """
-
         pass
+
 
 
 class Bot(discord.Client):
@@ -171,13 +183,13 @@ class Bot(discord.Client):
         print('-------')
         if Path(CURRENT_GAME_CACHE).exists():
             try:
-                current_game = await WWGame.load_from_file(CURRENT_GAME_CACHE, self)
+                current_game = await Game.load_from_file(CURRENT_GAME_CACHE, self)
             except FileNotFoundError:
                 pass
 
         if not current_game:
-            current_game = WWGame(id=0, guild=MY_GUILD)
-        print(current_game)
+            current_game = Game(id=0, guild=MY_GUILD)
+        print(f'Current Game: {current_game}')
         mod = WerewolfModGroup(name='mod', description='Run Werewolf Mod Commands')
         player = WerewolfPlayerGroup(name='wolf', description='Run player Werewolf commands.')
         bot.tree.add_command(mod)
@@ -211,11 +223,12 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 
 def main():
 
-
+    print('Starting up bot...')
     bot.run(str(os.getenv('TOKEN')))
 
 if __name__ == '__main__':

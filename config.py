@@ -104,7 +104,4 @@ CHANNEL_CONFIG = {
             PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=False, read_messages=True)
         }
     }
-
-
-
 }

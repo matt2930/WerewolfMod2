@@ -1,0 +1,105 @@
+town:
+  aura_seer:
+    night_action: true
+
+  bartender:
+    night_action: true
+
+  couple:
+    night_action: false
+
+  doctor:
+    night_action: true
+
+  escort:
+    night_action: true
+
+  gravedigger:
+    night_action: true
+
+  house_watcher:
+    night_action: true
+
+  hunter:
+    night_action: true
+
+  jailkeeper:
+    night_action: true
+
+  knight:
+    night_action: false
+
+  locksmith:
+    night_action: true
+
+  lookout:
+    night_action: true
+
+  matchmaker:
+    night_action: true
+
+  mayor:
+    night_action: true
+
+  patrolman:
+    night_action: true
+
+  scrabble_granny:
+    night_action: true
+
+  seer:
+    night_action: true
+
+  sleepwalker:
+    night_action: true
+
+  veteran:
+    night_action: true
+
+  villager:
+    night_action: false
+
+  vigilante:
+    night_action: true
+
+wolf:
+  alpha:
+    night_action: true
+  bloodhound:
+    night_action: true
+  clairvoyant:
+    night_action: true
+  consort:
+    night_action: true
+  framer:
+    night_action: true
+  glutton:
+    night_action: true
+  heir:
+    night_action: false
+  hypnotist:
+    night_action: true
+  lone_wolf:
+    night_action: true
+  stalker:
+    night_action: true
+  turncoat:
+    night_action: false
+  wolf:
+    night_action: false
+
+neutral:
+  arsonist:
+    night_action: true
+  graverobber:
+    night_action: true
+  jester:
+    night_action: false
+  murderer:
+    night_action: true
+  orphan:
+    night_action: true
+  plague_bringer:
+    night_action: true
+  serial_killer:
+    night_action: true
