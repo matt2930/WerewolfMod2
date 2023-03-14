@@ -1,9 +1,10 @@
 import discord
 import random
+from utils import update_game
 
 from discord import ui, Interaction
 
-from config import CHANNEL_CONFIG, GameState
+from config import CHANNEL_CONFIG, GameStates
 
 class ChannelSelectDropdown(ui.Select):
     def __init__(self, game):
@@ -11,7 +12,7 @@ class ChannelSelectDropdown(ui.Select):
 
         options = [
             discord.SelectOption(label=channel, default=config.get('default', False))
-            for channel, config in CHANNEL_CONFIG[GameState.NEW].items()
+            for channel, config in CHANNEL_CONFIG[GameStates.NEW].items()
         ]
 
         self.current_game = game
@@ -23,15 +24,16 @@ class ChannelSelectDropdown(ui.Select):
         # self.disabled = True
         assert self.view is not None
         if self.current_game.channels == {}:
-            self.current_game.channels = {channel_name: {'name': f'g{self.current_game.id}-{channel_name}'} for channel_name in self.values}
+            self.current_game.channels = {channel_name: {} for channel_name in self.values}
         await self.current_game.create_channels(interaction)
-        await interaction.response.send_message('Game creation complete!')
         self.disabled = True
-        return self.current_game
+        print('Channel creation complete')
+        update_game(interaction, self.current_game)
+        await interaction.response.send_message('Game Creation Complete!')
 
 class ChannelSelectView(ui.View):
     def __init__(self, game):
-        super().__init__()
+        super().__init__(timeout=10)
         self.add_item(ChannelSelectDropdown(game))
 
 
@@ -71,7 +73,11 @@ Villager
 ''')
 
     async def on_submit(self, interaction: Interaction):
-        await interaction.response.send_message('Roles Set.')
-        self.roles = random.shuffle(self.roles.value.split('\n'))
 
-        return self.roles
+        print(self.roles.value)
+        val_array = self.roles.value.strip().split('\n')
+        self.roles = self.roles.value.strip().split('\n')
+        random.shuffle(self.roles)
+
+        print(f'Roles: {self.roles}')
+        self.interaction = interaction

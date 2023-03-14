@@ -1,25 +1,30 @@
+import dotenv
 import discord
 import os
 
 from enum import Enum
 
-CURRENT_GAME_CACHE = os.path.join(os.path.expanduser('~'), '.werewolf/current_game.json')
+dotenv.load_dotenv()
 
-class GameState(Enum):
+CURRENT_GAME_CACHE_DIR = os.path.join(os.path.expanduser('~'), '.werewolf')
+
+class GameStates(Enum):
     NEW = 'setup'
     READY = 'ready'
     SIGNUPS = 'signups'
-    PREGAME = 'assigning roles'
+    ASSIGNMENT = 'assigning roles'
+    ASSIGNED = 'roles assigned'
     IN_PROGRESS_DAY = 'in progress - DAY'
     IN_PROGRESS_NIGHT = 'in progress - NIGHT'
     FINISHED = 'finished'
+
 
 class Alignment(Enum):
     TOWN = 1
     WOLF = 2
     NEUTRAL = 3
 
-class PlayerState(Enum):
+class PlayerStates(Enum):
     ALIVE = 'Alive'
     DEAD = 'Dead'
     SIGNED_UP = 'Signed Up'
@@ -27,81 +32,85 @@ class PlayerState(Enum):
 
 CHANNEL_CONFIG = {
 
-    GameState.NEW: {
+    GameStates.NEW: {
         'breakdown': {
-
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.DEAD: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SIGNED_UP: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=False, read_messages=True)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.DEAD.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SIGNED_UP.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            'default': True
         },
         'results': {
-
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.DEAD: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SIGNED_UP: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=False, read_messages=True)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.DEAD.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SIGNED_UP.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            'default': True
         },
         'townsquare': {
-
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=True, read_messages=True),
-            PlayerState.DEAD: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SIGNED_UP: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=False, read_messages=True)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=True, read_messages=True),
+            PlayerStates.DEAD.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SIGNED_UP.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            'default': True
         },
         'voting-booth': {
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.DEAD: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SIGNED_UP: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=False, read_messages=True)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.DEAD.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SIGNED_UP.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            'default': True
         },
         'memos': {
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.DEAD: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SIGNED_UP: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=False, read_messages=True)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.DEAD.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SIGNED_UP.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            'default': True
         },
         'couple-chat': {
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=False, read_messages=False),
-            PlayerState.DEAD: discord.PermissionOverwrite(send_messages=False, read_messages=True),
-            PlayerState.SIGNED_UP: discord.PermissionOverwrite(send_messages=False, read_messages=False),
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=False, read_messages=False)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=False, read_messages=False),
+            PlayerStates.DEAD.value: discord.PermissionOverwrite(send_messages=False, read_messages=True),
+            PlayerStates.SIGNED_UP.value: discord.PermissionOverwrite(send_messages=False, read_messages=False),
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=False, read_messages=False)
         },
         'wolf-chat': {
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=False, read_messages=False),
-            PlayerState.DEAD: discord.PermissionOverwrite(send_messages=False, read_messages=False),
-            PlayerState.SIGNED_UP: discord.PermissionOverwrite(send_messages=False, read_messages=False),
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=False, read_messages=False)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=False, read_messages=False),
+            PlayerStates.DEAD.value: discord.PermissionOverwrite(send_messages=False, read_messages=False),
+            PlayerStates.SIGNED_UP.value: discord.PermissionOverwrite(send_messages=False, read_messages=False),
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=False, read_messages=False),
+            'default': True,
         },
         'spectator-chat': {
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=False, read_messages=False),
-            PlayerState.DEAD: discord.PermissionOverwrite(send_messages=True, read_messages=True),
-            PlayerState.SIGNED_UP: discord.PermissionOverwrite(send_messages=True, read_messages=True),
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=True, read_messages=True)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=False, read_messages=False),
+            PlayerStates.DEAD.value: discord.PermissionOverwrite(send_messages=True, read_messages=True),
+            PlayerStates.SIGNED_UP.value: discord.PermissionOverwrite(send_messages=True, read_messages=True),
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=True, read_messages=True),
+            'default': True
         }
     },
 
-    GameState.IN_PROGRESS_DAY: {
+    GameStates.IN_PROGRESS_DAY: {
         'townsquare': {
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=True, read_messages=True),
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=True, read_messages=True),
         },
         'voting-booth': {
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=True, read_messages=True)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=True, read_messages=True)
         },
         'memos': {
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=True, read_messages=True)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=True, read_messages=True)
         },
         'couple-chat': {
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=False, read_messages=True)
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=False, read_messages=True)
         },
         'wolf-chat': {
-            PlayerState.SPECTATOR: discord.PermissionOverwrite(send_messages=False, read_messages=True)
+            PlayerStates.SPECTATOR.value: discord.PermissionOverwrite(send_messages=False, read_messages=True)
         }
     },
 
-    GameState.IN_PROGRESS_NIGHT: {
+    GameStates.IN_PROGRESS_NIGHT: {
         'voting-booth': {
-            PlayerState.ALIVE: discord.PermissionOverwrite(send_messages=False, read_messages=True)
+            PlayerStates.ALIVE.value: discord.PermissionOverwrite(send_messages=False, read_messages=True)
         }
     }
 }

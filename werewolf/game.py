@@ -1,152 +1,138 @@
 import discord
-import json
-import os
 
 from dataclasses import dataclass, field
 from typing import Optional
-from pathlib import Path
 
-from config import GameState, PlayerState, CURRENT_GAME_CACHE
+from config import GameStates, CHANNEL_CONFIG
 from werewolf.player import Player
+
 
 @dataclass
 class Game:
-    id: int
     guild: discord.Guild
-    state: GameState = GameState.NEW
-    channels: dict = field(default_factory=dict)
-    roles: list = field(default_factory=list)
-    players: dict = field(default_factory=dict)
-    signups_channel: Optional[discord.TextChannel] = None
+    game_num: int
+    _state: str = 'NEW'
     category_channel: Optional[discord.CategoryChannel] = None
+    channels: dict[str, discord.TextChannel] = field(default_factory=dict)
+    roles: list[str] = field(default_factory=list)
+    players: set = field(default_factory=set)
+    cycle: int = 1
 
-    def __post_init__(self):
-        if self.players == {}:
-            self.players = set()
-        else:
-            self.players = set(self.players)
+    @property
+    def state(self):
+        return GameStates[self._state]
 
-    def write_to_file(self, file: str):
-
-        channels = {}
-        if len(self.channels) > 0:
-            channels = {channel: {'channel_id': config['channel'].id} for channel, config in self.channels.items()}
-
-        players = []
-        if self.players != set():
-            players = [(player.member.id, player._state.name) for player in self.players]
-
-        signups_channel_id = ''
-        if self.signups_channel:
-            signups_channel_id = self.signups_channel.id
-
-        category_channel_id = ''
-        if self.category_channel:
-            category_channel_id = self.category_channel.id
-
-
-        game_as_dict = dict(
-            id=self.id,
-            guild_id=self.guild.id,
-            state=self.state.name,
-            channels=channels,
-            roles=self.roles,
-            players=players,
-            signups_channel_id=signups_channel_id,
-            category_channel_id=category_channel_id
-        )
-
-        path = Path(file)
-
-        if not os.path.isdir(path.resolve().parent):
-            os.mkdir(path.resolve().parent)
-
-        with open(path.resolve(), 'w') as f:
-            json.dump(game_as_dict, f)
-
-        return path
+    @state.setter
+    def state(self, new_state):
+        self._state = new_state
 
     @classmethod
-    async def load_from_file(cls, file: str, client: discord.Client):
+    def from_mongo(cls, client: discord.Client, data: dict):
+        guild: discord.Guild = client.get_guild(data['guild'])
 
-        path = Path(file)
-        if not path.exists():
-            raise FileNotFoundError('Unable to find game file')
-
-        with open(path.resolve(), 'r') as f:
-            game = json.load(f)
-
-        print(f'Game Data: {game}')
-
-        guild: discord.Guild = await client.fetch_guild(int(game['guild_id']))
-
+        category_channel = None
         channels = {}
-        for channel, config in game.get('channels', {}).items():
-            channel_obj = await guild.fetch_channel(config['channel_id'])
-            channels[channel] = {'name': channel_obj.name, 'channel': channel_obj}
-
         players = set()
 
-        for player in game.get('players', []):
-            member_id = player[0]
-            state = player[1]
+        if (category_id := data.get('category_channel')):
+            category_channel = guild.get_channel(category_id)
 
-            players.add(Player(member=await guild.fetch_member(member_id), _state=PlayerState[state]))
+        if len(data.get('channels', {})) > 0:
+            for channel_type, channel_id in data.get('channels').items():
+                channels[channel_type] = guild.get_channel(channel_id)
 
-        for player in players:
-            await player.set_state(player._state) # re-assign roles from last bot state
-
+        if len(data.get('players', {})) > 0:
+            players_data = data.get('players')
+            for user_id in players_data:
+                if not (member := guild.get_member(int(user_id))):
+                    raise RuntimeError(f'Cound not get member object for user: {user_id}')
+                player = Player(member, role=players_data[user_id].get('role', ''))
+                players.add(player)
 
         return cls(
-            id=game['id'],
             guild=guild,
-            state=GameState[game['state']],
+            game_num=data['game_num'],
+            _state=data['_state'],
+            category_channel=category_channel,
             channels=channels,
-            roles=game['roles'],
+            roles=data.get('roles', []),
             players=players,
-            signups_channel=discord.Object(int(game['signups_channel_id'])) if game['signups_channel_id'] else None,
-            category_channel=discord.Object(int(game['category_channel_id'])) if game['category_channel_id'] else None
+            cycle=data['cycle']
         )
 
+    def to_mongo(self):
+        _dict = self.__dict__.copy()
 
+        print(f'to_mongo_dict: {_dict}')
+
+        for channel_type, channel in self.channels.items():
+            _dict['channels'][channel_type] = channel.id
+
+        _dict['players'] = {}
+        for player in self.players:
+            _dict['players'][str(player.member.id)] = {'role': player.role}
+
+        _dict['guild'] = self.guild.id
+        _dict['category_channel'] = self.category_channel.id
+
+        return _dict
 
     async def create_channels(self, interaction: discord.Interaction):
 
-        if self.state != GameState.NEW:
+        if self.state != GameStates.NEW:
             await interaction.response.send(f'Game is currently in state: {self.state}. To run channel creation, please start a new game.')
-            raise Exception(f'Invalid Game State: {self.state}. Game must be in state "{GameState.NEW}" to create channels')
+            raise Exception(f'Invalid Game State: {self.state}. Game must be in state "{GameStates.NEW}" to create channels')
 
-        self.category_channel = await self.guild.create_category_channel(f'Game {self.id}', position=0)
+        self.category_channel = await self.guild.create_category_channel(f'Game {self.game_num}', position=0)
 
         for i, channel in enumerate(self.channels):
-            self.channels[channel]['channel'] = await self.category_channel.create_text_channel(
-                self.channels[channel]['name'],
+            self.channels[channel] = await self.category_channel.create_text_channel(
+                f'g{self.game_num}-{channel}',
                 position=i,
-
             )
             # TODO: Set channel perms
+            if channel in CHANNEL_CONFIG[self.state]:
+                for role, perms in CHANNEL_CONFIG[self.state][channel].items():
+                    if role in ('Alive', 'Dead', 'Spectator', 'Signed Up'):
+                        await self.channels[channel].set_permissions(
+                            discord.utils.get(self.member.guild.roles, name=role),
+                            overwrite=perms
+                        )
 
-        self.state = GameState.READY
+
+        self.state = 'READY'
         return
 
     async def open_signups(self):
-        if self.state != GameState.READY:
-            raise Exception('Unable to open signups')
-        print(self.channels)
-        self.signups_channel: discord.TextChannel = self.channels['spectator-chat']['channel']
-        print(self.signups_channel)
-        await self.signups_channel.send(f'Welcome to Game {self.id}! Please type "/wolf join" to sign up.')
-        self.state = GameState.SIGNUPS
-        return self.signups_channel.name
+        if self.state != GameStates.READY:
+            raise Exception('Unable to open signups unless game is in READY state.')
+
+        signups_channel: discord.TextChannel = self.channels['spectator-chat']
+        journals_category = discord.utils.get(self.guild.channels, name='Journals')
+        if not journals_category:
+            await self.guild.create_category_channel('Journals')
+        embed = discord.Embed(
+            title=f'Welcome to Game {self.game_num}! Please type"/wolf join" to sign up.',
+            description='List of currently signed up players.'
+        )
+        embed.add_field(
+            name='Players',
+            value=''
+        )
+        message = await signups_channel.send(embed=embed)
+        await message.pin()
+        self.state = 'SIGNUPS'
+        return signups_channel.name
 
     async def close_signups(self):
-        if self.state != GameState.SIGNUPS:
+        if self.state != GameStates.SIGNUPS:
             raise Exception('Cannot close signups')
         print('closing signups')
-        self.state = GameState.PREGAME
+        self.state = 'PREGAME'
+        await self.channels['spectator-chat'].edit(name=f'g{self.game_num}-dead-chat')
 
         for player in self.players:
-            await player.set_state(PlayerState.ALIVE)
+            await player.update_state('Alive')
 
         print(self.players)
 
@@ -154,26 +140,29 @@ class Game:
 
     async def end_game(self):
         for player in self.players:
-            await player.set_state(PlayerState.SPECTATOR)
+            await player.update_state('Spectator')
 
-        self.state = GameState.FINISHED
+        self.state = 'FINISHED'
 
     async def add_player(self, interaction: discord.Interaction):
 
-        if self.state != GameState.SIGNUPS:
+        if self.state != GameStates.SIGNUPS:
             raise Exception('Unable to join when signups are not active.')
 
         player = Player(member=interaction.user)
+        await player.create_journal()
+
         if player in self.players:
             await interaction.response.send_message('You are already signed up for this game.', ephemeral=True)
-            return
-        await player.set_state(PlayerState.SIGNED_UP)
+            return False
+
+        await player.update_state('Signed Up')
         self.players.add(player)
-        return
+        return True
 
     async def remove_player(self, member: discord.Member):
 
-        if self.state != GameState.SIGNUPS:
+        if self.state != GameStates.SIGNUPS:
             raise Exception('Unable to leave when signups are not active.')
 
         player = Player(member=member)
@@ -181,6 +170,27 @@ class Game:
         if player in self.players:
             self.players.remove(player)
 
-        await player.set_state(PlayerState.SPECTATOR)
+        await player.update_state('Spectator')
 
         print(self.players)
+
+    async def start_game(self):
+        for player in self.players:
+            journal = player.journal
+            await player.update_state('Alive')
+            await journal.send(f'You are a {player.role}')
+
+        self.state = 'IN_PROGRESS_NIGHT'
+
+
+    async def day(self):
+        # set vb to allow activity
+
+        # set state to day
+        self.state = 'IN_PROGRESS_DAY'
+
+    async def night(self):
+        # set vb to read-only
+
+        self.state = 'IN_PROGRESS_NIGHT'
+        self.cycle += 1
